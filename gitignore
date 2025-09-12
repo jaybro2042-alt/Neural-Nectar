@@ -1,0 +1,21 @@
+# Python venv & caches
+.venv/
+__pycache__/
+*.pyc
+*.pyo
+*.pyd
+
+# OS cruft
+.DS_Store
+Thumbs.db
+
+# Local data & generated artifacts
+data/
+out/
+reports/
+*.log
+
+# IDE stuff
+.vscode/
+.idea/
+.ipynb_checkpoints/
