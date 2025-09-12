@@ -1,0 +1,17 @@
+﻿{
+  "name": "supertrend_filter",
+  "strategy": "supertrend_filter",
+  "initial_capital": 10000,
+  "commission": 0.0002,
+  "data": { "symbol": "AUDCAD", "interval": "5m" },
+  "params": {
+    "enable_longs": true, "enable_shorts": true,
+    "use_supertrend": true,
+    "use_ema_rsi": false, "use_macd_bb": false, "use_stochrsi": false,
+    "use_keltner": false, "use_donchian": false, "use_vwap": false
+  },
+  "search_space": {
+    "st_period": [7, 10, 14],
+    "st_mult":   [2.5, 3.0, 3.5]
+  }
+}

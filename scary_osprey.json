@@ -1,0 +1,21 @@
+{
+  "name": "scary_osprey",
+  "timeframe": "5m",
+  "universe": [
+    "EUR/USD"
+  ],
+  "params": {
+    "ema_fast": 20,
+    "ema_slow": 60,
+    "rsi": 14,
+    "atr": 14
+  },
+  "risk": {
+    "risk_pct": 1.0,
+    "stop": "2*ATR(14)",
+    "take_profit_R": 2.0,
+    "value_per_point": 1.0
+  },
+  "entry": "Squeeze breakout with momentum confirmation",
+  "exit": "Mid-band reversion or opposite squeeze break"
+}

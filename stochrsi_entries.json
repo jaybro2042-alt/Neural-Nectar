@@ -1,0 +1,21 @@
+﻿{
+  "name": "stochrsi_entries",
+  "strategy": "stochrsi_entries",
+  "initial_capital": 10000,
+  "commission": 0.0002,
+  "data": { "symbol": "AUDCAD", "interval": "5m" },
+  "params": {
+    "enable_longs": true, "enable_shorts": true,
+    "use_stochrsi": true,
+    "use_ema_rsi": false, "use_macd_bb": false, "use_supertrend": false,
+    "use_keltner": false, "use_donchian": false, "use_vwap": false
+  },
+  "search_space": {
+    "rsi_length": [10, 14, 21],
+    "stoch_len":  [14, 21],
+    "stoch_k":    [3],
+    "stoch_d":    [3],
+    "stoch_buy":  [15, 20, 25],
+    "stoch_sell": [75, 80, 85]
+  }
+}

@@ -1,0 +1,274 @@
+#!/usr/bin/env python3
+# -*- coding: utf-8 -*-
+
+import sys, json, traceback, subprocess
+from pathlib import Path
+
+# --- Project root on path (handles "Trading algo" with spaces) ---
+ROOT = Path(__file__).resolve().parent
+if str(ROOT) not in sys.path:
+    sys.path.insert(0, str(ROOT))
+
+
+# --- Minimal config loader; no external helper needed ---
+def _load_cfg():
+    """
+    Load master_config.json if present; otherwise use safe defaults.
+    Create data/strategies/reports if missing.
+    """
+    default_cfg = {
+        "meta": {"name": "Main Trading Orchestrator", "version": "local-repl"},
+        "tools": {"enabled": []},
+        "paths": {"data_dir": "data", "strategies_dir": "strategies", "reports_dir": "reports"},
+        "backtest": {"cash": 10000, "commission": 0.0002},
+    }
+    cfg_path = ROOT / "master_config.json"
+
+    try:
+        if cfg_path.exists():
+            user = json.loads(cfg_path.read_text(encoding="utf-8"))
+            if isinstance(user, dict):
+                # shallow merge is enough here
+                for k, v in user.items():
+                    default_cfg[k] = v
+    except Exception:
+        print("[cfg] failed to load master_config.json; using defaults", file=sys.stderr)
+
+    # ensure directories exist
+    for d in (
+        default_cfg["paths"]["data_dir"],
+        default_cfg["paths"]["strategies_dir"],
+        default_cfg["paths"]["reports_dir"],
+    ):
+        try:
+            (ROOT / d).mkdir(parents=True, exist_ok=True)
+        except Exception:
+            pass
+
+    return default_cfg
+
+
+# --- Safe core import ---
+def _import_core():
+    try:
+        import importlib
+        return importlib.import_module("core")
+    except Exception as e:
+        print(f"[boot] cannot import core.py: {e}", file=sys.stderr)
+        return None
+
+
+# --- Utility for !!tools, tolerant to various tool shapes ---
+def list_tool_names(agent):
+    try:
+        names = []
+        tools = getattr(agent, "tools", None) or []
+        for t in tools:
+            n = getattr(t, "name", None)
+            if n is None and isinstance(t, dict):
+                n = t.get("name")
+            if n:
+                names.append(str(n))
+        return sorted(set(names))
+    except Exception:
+        return []
+
+
+# --- Very small console agent that calls into core.py helpers ---
+class FallbackConsoleAgent:
+    def __init__(self, core_mod, cfg):
+        self.core = core_mod
+        self.cfg = cfg
+        self.tools = [
+            "backtest", "refine", "select_best", "ohlcv",
+            "!!reload", "!!tools", "!!quit", "!py", "!shell",
+        ]
+
+    def run_cmd(self, line: str):
+        parts = line.strip().split()
+        if not parts:
+            return
+        cmd, args = parts[0], parts[1:]
+
+        # exits
+        if cmd in ("!!quit", "quit", "exit"):
+            raise KeyboardInterrupt
+
+        # REPL helpers
+        if cmd == "!!tools":
+            print("tools:", ", ".join(self.tools))
+            return
+
+        if cmd == "!!reload":
+            import importlib
+            try:
+                self.cfg = _load_cfg()
+                self.core = importlib.reload(self.core)
+                print("[reload] ok.")
+            except Exception:
+                traceback.print_exc()
+            return
+
+        if cmd == "!py":
+            # run inline python in project context
+            code = line.partition("!py")[2]
+            loc = {"ROOT": ROOT, "cfg": self.cfg, "core": self.core}
+            try:
+                exec(code, loc, loc)
+            except Exception:
+                traceback.print_exc()
+            return
+
+        if cmd == "!shell":
+            shell_line = line.partition("!shell")[2].strip() or "echo (no command)"
+            try:
+                subprocess.run(shell_line, shell=True, check=False)
+            except Exception as e:
+                print("shell error:", e)
+            return
+
+        # Trading ops that call into core.py
+        if cmd == "backtest":
+            if not args:
+                print("usage: backtest <strategy.json>")
+                return
+            spec_path = ROOT / args[0]
+            try:
+                fn = getattr(self.core, "run_backtest_on_spec", None)
+                if not callable(fn):
+                    print("[backtest] core.run_backtest_on_spec is missing")
+                    return
+                out = fn(spec_path)
+                print(out if out is not None else "[backtest done]")
+            except Exception:
+                traceback.print_exc()
+            return
+
+        if cmd == "refine":
+            if not args:
+                print("usage: refine <strategy.json>")
+                return
+            spec_path = ROOT / args[0]
+            try:
+                fn = getattr(self.core, "quick_refine", None)
+                if not callable(fn):
+                    print("[refine] core.quick_refine is missing")
+                    return
+                out = fn(spec_path)
+                print(out if out is not None else "[refine done]")
+            except Exception:
+                traceback.print_exc()
+            return
+
+        if cmd == "select_best":
+            if not args:
+                print("usage: select_best <report.json>")
+                return
+            try:
+                fn = getattr(self.core, "select_best", None)
+                if not callable(fn):
+                    print("[select_best] core.select_best is missing")
+                    return
+                out = fn(ROOT / args[0])
+                print(out if out is not None else "[select_best done]")
+            except Exception:
+                traceback.print_exc()
+            return
+
+        if cmd == "ohlcv":
+            # e.g. ohlcv SPY 1d 60d
+            if len(args) < 3:
+                print("usage: ohlcv <symbol> <timeframe> <period>")
+                return
+            sym, tf, period = args[:3]
+            try:
+                fn = getattr(self.core, "ensure_ohlcv", None)
+                if not callable(fn):
+                    print("[ohlcv] core.ensure_ohlcv is missing")
+                    return
+                out = fn(sym, tf, period)
+                print(out if out is not None else "[ohlcv done]")
+            except Exception:
+                traceback.print_exc()
+            return
+
+        print("unknown command:", cmd)
+
+
+def build_agent_or_fallback(core_mod, cfg):
+    """
+    Try core.build_main_agent(cfg) if provided; otherwise return FallbackConsoleAgent.
+    """
+    try:
+        builder = getattr(core_mod, "build_main_agent", None)
+        if builder and callable(builder):
+            return builder(cfg)
+    except Exception:
+        print("[boot] build_main_agent failed; falling back.", file=sys.stderr)
+    return FallbackConsoleAgent(core_mod, cfg)
+
+
+# --- REPL ---
+def repl(agent):
+    print("Main Trading Orchestrator ready.")
+    print("Type naturally. Commands still work:")
+    print("Commands:  !!reload  !!tools  !!quit")
+    print("Utilities: !shell <cmd>   !py <code>")
+    while True:
+        try:
+            line = input("you> ").strip()
+        except EOFError:
+            break
+        if not line:
+            continue
+        # Handle quit/reload commands directly
+        if line in ("!!quit", "quit", "exit"):
+            print("bye.")
+            break
+        if line in ("!!reload", "reload"):
+            # Inform user to restart for reload
+            print("[reload] Use Ctrl+C then re-run main_agent_entry.py")
+            continue
+        try:
+            # If agent has chat() method, call it first for chat-like input
+            chat_fn = getattr(agent, "chat", None)
+            if callable(chat_fn):
+                res = chat_fn(line)
+                if isinstance(res, str) and res:
+                    print(res)
+                    continue
+            # Fallback: try run_cmd, run, handle, dispatch
+            _fn = None
+            for _name in ("run_cmd", "run", "handle", "dispatch"):
+                candidate = getattr(agent, _name, None)
+                if callable(candidate):
+                    _fn = candidate
+                    break
+            if _fn is not None:
+                out = _fn(line)
+                if isinstance(out, str) and out:
+                    print(out)
+            else:
+                print("[fatal] agent has no command entrypoint")
+        except KeyboardInterrupt:
+            print("^C")
+        except Exception:
+            traceback.print_exc()
+
+
+# --- Boot sequence ---
+def _boot():
+    cfg = _load_cfg()
+    core_mod = _import_core()
+    if core_mod is None:
+        print(f"[boot] core.py is required in {ROOT}", file=sys.stderr)
+        return
+    agent = build_agent_or_fallback(core_mod, cfg)
+    # Make !!tools useful for any agent that exposes `tools`
+    if not getattr(agent, "tools", None):
+        agent.tools = list_tool_names(agent) or []
+    repl(agent)
+
+
+if __name__ == "__main__":
+    _boot()

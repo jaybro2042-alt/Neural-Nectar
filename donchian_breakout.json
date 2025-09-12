@@ -1,0 +1,16 @@
+﻿{
+  "name": "donchian_breakout",
+  "strategy": "donchian_breakout",
+  "initial_capital": 10000,
+  "commission": 0.0002,
+  "data": { "symbol": "AUDCAD", "interval": "5m" },
+  "params": {
+    "enable_longs": true, "enable_shorts": true,
+    "use_donchian": true,
+    "use_ema_rsi": false, "use_macd_bb": false, "use_supertrend": false,
+    "use_stochrsi": false, "use_keltner": false, "use_vwap": false
+  },
+  "search_space": {
+    "donch_period": [20, 40, 60]
+  }
+}

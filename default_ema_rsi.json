@@ -1,0 +1,29 @@
+﻿{
+  "name": "base_ema_rsi",
+  "data": {
+    "symbol": "AUDCAD",
+    "interval": "5m",
+    "period": "30d",
+    "csv": "data/AUDCAD_5m.csv"
+  },
+  "params": {
+    "ema_fast": 12,
+    "ema_slow": 26,
+    "rsi_length": 14,
+    "rsi_entry_low": 45,
+    "rsi_entry_high": 65,
+    "atr_period": 14,
+    "risk_pct": 1.0,
+    "pyramiding": 0
+  },
+  "logic": {
+    "long_entry": "(EMA_F > EMA_S) and (RSI >= rsi_entry_low) and (RSI <= rsi_entry_high)",
+    "long_exit": "(EMA_F <= EMA_S) or (RSI < rsi_entry_low) or (RSI > rsi_entry_high)",
+    "shorting": false
+  },
+  "report": {
+    "want": ["total_return_pct","profit_per_day_pct","win_rate_pct","profit_factor","max_drawdown_pct","trades","bars","first_ts","last_ts"]
+  },
+  "initial_capital": 10000,
+  "commission": 0.0002
+}

@@ -1,0 +1,24 @@
+﻿{
+  "name": "hybrid_ema_st_keltner",
+  "strategy": "hybrid_ema_st_keltner",
+  "initial_capital": 10000,
+  "commission": 0.0002,
+  "data": { "symbol": "AUDCAD", "interval": "5m" },
+  "params": {
+    "enable_longs": true, "enable_shorts": true,
+    "use_ema_rsi": true, "use_supertrend": true, "use_keltner": true,
+    "use_macd_bb": false, "use_stochrsi": false, "use_donchian": false, "use_vwap": false
+  },
+  "search_space": {
+    "ema_fast":  [8, 12, 16],
+    "ema_slow":  [20, 26, 34],
+    "rsi_length":[10, 14],
+    "rsi_lo":    [40, 45],
+    "rsi_hi":    [60, 65],
+    "st_period": [7, 10, 14],
+    "st_mult":   [2.5, 3.0],
+    "kel_ema":   [20, 34],
+    "kel_atr":   [10, 14],
+    "kel_mult":  [1.2, 1.5]
+  }
+}

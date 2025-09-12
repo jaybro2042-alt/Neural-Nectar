@@ -1,0 +1,11 @@
+﻿{
+  "name": "base_ema_rsi",
+  "data": { "symbol": "AUDCAD", "interval": "5m", "period": "30d", "csv": "data/AUDCAD_5m.csv" },
+  "params": {"enable_longs": true, "enable_shorts": true, 
+    "use_ema_rsi": true, "ema_fast": 12, "ema_slow": 26, "rsi_length": 14, "rsi_lo": 45, "rsi_hi": 65,
+    "use_macd_bb": false, "use_supertrend": false, "use_adx_filter": false, "use_stochrsi": false,
+    "use_keltner": false, "use_donchian": false, "use_vwap": false,
+    "use_or_logic": false, "flat_on_cross": true
+  },
+  "initial_capital": 10000, "commission": 0.0002
+}

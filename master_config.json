@@ -1,0 +1,192 @@
+{
+    "meta":  {
+                 "name":  "Main Trading Orchestrator",
+                 "version":  "2.0.1"
+             },
+    "instructions":  {
+                         "system":  [
+                                        "You are the Main Trading Orchestrator.",
+                                        "Primary objective: create, refine, and implement profitable trading strategies.",
+                                        "Secondary objective: maintain and upgrade this program to better achieve objective one.",
+                                        "Follow user instructions first; when idle, act to improve strategies and infrastructure.",
+                                        "Use real, reliable data; reject incomplete or suspicious inputs.",
+                                        "Prefer profit_factor as the primary metric; do not use Sharpe.",
+                                        "Explain actions and assumptions in plain English.",
+                                        "When fetching data, prefer ensure_ohlcv_plus/build_deep_csv.",
+                                        "When running, call run_backtest_on_spec then quick_refine; select best with select_best.",
+                                        "Use forward_monitor for forward-style runs and narrate results.",
+                                        "Use patch_file/append_line to repair local files; never edit outside allowed paths.",
+                                        "Report profit_factor, expectancy, winrate, rtot, ravg, and drawdowns, and cite the CSV/spec used."
+                                    ],
+                         "style":  {
+                                       "plain_english":  true,
+                                       "reason_aloud":  true
+                                   }
+                     },
+    "permissions":  {
+                        "tools":  {
+                                      "web_search":  true,
+                                      "code_interpreter":  true,
+                                      "allow_console":  true,
+                                      "file_search":  true,
+                                      "allow_all":  true,
+                                      "retrieval":  true,
+                                      "image_generation":  true,
+                                      "audio_transcription":  true,
+                                      "audio_speech":  true,
+                                      "structured_outputs":  true,
+                                      "realtime":  true,
+                                      "fine_tuning":  true,
+                                      "responses":  true,
+                                      "computer_use_preview":  true,
+                                      "local_shell":  true,
+                                      "allow_file_write":  true,
+                                      "allow_directory_creation":  true,
+                                      "allow_directory_modification":  true,
+                                      "allow_package_install":  true,
+                                      "allow_import_orchestrator":  true,
+                                      "allow_data_fetch":  true,
+                                      "allow_execution":  true,
+                                      "auto_respond":  true,
+                                      "file_edit":  true
+                                  },
+                        "network":  {
+                                        "yfinance":  true,
+                                        "http":  true
+                                    },
+                        "temporal":  {
+                                         "enabled":  true
+                                     }
+                    },
+    "paths":  {
+                  "data_dir":  "data",
+                  "strategies_dir":  "strategies",
+                  "reports_dir":  "reports"
+              },
+    "tools":  {
+                  "enabled":  [
+                                  "ensure_ohlcv",
+                                  "ensure_ohlcv_plus",
+                                  "build_deep_csv",
+                                  "validate_csv",
+                                  "run_backtest_on_spec",
+                                  "quick_refine",
+                                  "select_best",
+                                  "forward_monitor",
+                                  "write_report",
+                                  "organize_project",
+                                  "patch_file",
+                                  "append_line",
+                                  "get_master_config",
+                                  "set_master_config",
+                                  "reload_master_config",
+                                  "repair_master_config",
+                                  "pip_install",
+                                  "local_shell"
+                              ],
+                  "defaults":  {
+                                   "primary_metric":  "profit_factor",
+                                   "symbol":  "AUDCAD",
+                                   "timeframe":  "5m",
+                                   "period":  "30d"
+                               }
+              },
+    "data":  {
+                 "source":  "yfinance",
+                 "interval":  "5m",
+                 "min_bars":  600,
+                 "warmup_factor":  3,
+                 "timezone":  "America/New_York",
+                 "auto_extend_period":  true,
+                 "max_auto_extend_days":  120
+             },
+    "indicators":  {
+                       "allow":  [
+                                     "ema",
+                                     "sma",
+                                     "rsi",
+                                     "atr",
+                                     "macd",
+                                     "stoch"
+                                 ],
+                       "drop_if_nan_ratio_gt":  0.05,
+                       "fallback_policy":  "drop_indicator",
+                       "windows":  {
+                                       "ema_fast":  10,
+                                       "ema_slow":  20,
+                                       "rsi_period":  14
+                                   }
+                   },
+    "backtest":  {
+                     "cash":  10000,
+                     "commission":  0.0002,
+                     "risk_pct":  10,
+                     "sizer":  "PercentSizer",
+                     "analyzers":  [
+                                       "DrawDown",
+                                       "TimeReturn",
+                                       "TradeLogger"
+                                   ],
+                     "constraints":  {
+                                         "max_drawdown_pct_limit":  40.0
+                                     },
+                     "report_metrics":  [
+                                            "profit_factor",
+                                            "expectancy",
+                                            "winrate",
+                                            "rtot",
+                                            "ravg",
+                                            "max_drawdown_pct"
+                                        ]
+                 },
+    "optimization":  {
+                         "method":  "grid",
+                         "runs":  24,
+                         "params":  {
+                                        "ema_fast":  {
+                                                         "min":  5,
+                                                         "max":  20,
+                                                         "step":  5
+                                                     },
+                                        "ema_slow":  {
+                                                         "min":  20,
+                                                         "max":  60,
+                                                         "step":  10
+                                                     },
+                                        "rsi_period":  {
+                                                           "min":  10,
+                                                           "max":  20,
+                                                           "step":  2
+                                                       }
+                                    },
+                         "walk_forward":  {
+                                              "enabled":  true,
+                                              "train_days":  20,
+                                              "test_days":  10,
+                                              "overlap_days":  0
+                                          }
+                     },
+    "forward_monitor":  {
+                            "period":  "30d",
+                            "refresh_secs":  300,
+                            "cycles":  6,
+                            "halt_rules":  {
+                                               "profit_factor_lt":  1.0,
+                                               "consecutive_cycles":  2
+                                           }
+                        },
+    "risk":  {
+                 "halt_on_profit_factor_below":  1.0,
+                 "halt_on_max_drawdown_pct_above":  50.0
+             },
+    "symbol_overrides":  {
+                             "AUDCAD":  {
+                                            "commission":  0.00025,
+                                            "spread_pips_estimate":  1.2
+                                        }
+                         },
+    "console":  {
+                    "multiline_paste":  true,
+                    "hot_reload_command":  "!!reload"
+                }
+}

@@ -1,0 +1,20 @@
+﻿{
+  "name": "macd_bb_trend",
+  "strategy": "macd_bb_trend",
+  "initial_capital": 10000,
+  "commission": 0.0002,
+  "data": { "symbol": "AUDCAD", "interval": "5m" },
+  "params": {
+    "enable_longs": true, "enable_shorts": true,
+    "use_macd_bb": true,
+    "use_ema_rsi": false, "use_supertrend": false, "use_stochrsi": false,
+    "use_keltner": false, "use_donchian": false, "use_vwap": false
+  },
+  "search_space": {
+    "macd_fast":   [8, 12, 16],
+    "macd_slow":   [20, 26, 32, 40],
+    "macd_signal": [9, 12],
+    "bb_period":   [20, 30, 40],
+    "bb_dev":      [1.8, 2.0, 2.2]
+  }
+}

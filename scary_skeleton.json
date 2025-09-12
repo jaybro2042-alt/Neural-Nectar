@@ -1,0 +1,21 @@
+{
+  "name": "scary_skeleton",
+  "universe": [
+    "EUR/USD"
+  ],
+  "timeframe": "1m",
+  "params": {
+    "ema": 20,
+    "rsi": 14,
+    "atr": 14
+  },
+  "risk": {
+    "risk_pct": 0.5,
+    "stop": "2*ATR(14)"
+  },
+  "initial_capital": 10000,
+  "margin": 300000,
+  "commission": 0.0002,
+  "slippage": 0.0005,
+  "enabled": true
+}

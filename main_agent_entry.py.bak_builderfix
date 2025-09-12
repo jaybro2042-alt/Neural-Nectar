@@ -1,0 +1,159 @@
+﻿from pathlib import Path
+import json, os
+
+# --- globals / paths ---
+ROOT = Path(__file__).resolve().parent
+messages = []
+client = None
+
+def _robust_load_master_cfg():
+    cfg_path = ROOT / "master_config.json"
+    default_cfg = {
+        "data_dir": str((ROOT / "data").as_posix()),
+        "reports_dir": str((ROOT / "reports").as_posix()),
+        "strategies_dir": str((ROOT / "strategies").as_posix()),
+        "mode": "openai",
+        "openai_model": os.getenv("OPENAI_MODEL", "gpt-4o-mini"),
+        "commission": 0.0002,
+        "initial_capital": 10000,
+    }
+    try:
+        if cfg_path.exists():
+            user = json.loads(cfg_path.read_text(encoding="utf-8"))
+            if isinstance(user, dict):
+                default_cfg.update(user)
+    except Exception:
+        pass
+    for k in ("data_dir", "reports_dir", "strategies_dir"):
+        try: Path(default_cfg[k]).mkdir(parents=True, exist_ok=True)
+        except Exception: pass
+    return default_cfg
+
+# --- shims expected by the rest of your project ---
+def _import_builder():
+    candidates = [
+        ("core", "build_main_agent"),
+        ("agent.core", "build_main_agent"),
+        ("orchestrator.core", "build_main_agent"),
+        ("core", "build_agent"),
+        ("agent", "build_agent"),
+    ]
+    for mod, func in candidates:
+        try:
+            m = importlib.import_module(mod)
+            if hasattr(m, func):
+                return getattr(m, func)
+        except ModuleNotFoundError:
+            continue
+        except Exception:
+            continue
+
+    # Fallback: load core.py directly from disk
+    p = ROOT / "core.py"
+    if p.exists():
+        spec = importlib.util.spec_from_file_location("core_dynamic", str(p))
+        m = importlib.util.module_from_spec(spec)
+        assert spec.loader is not None
+        spec.loader.exec_module(m)
+        for func in ("build_main_agent", "build_agent"):
+            if hasattr(m, func):
+                return getattr(m, func)
+
+    raise ModuleNotFoundError("Could not locate a builder (build_main_agent/build_agent) in core/agent modules")
+
+def rebuild_agent(cfg):
+    builder = _import_builder()
+    return builder(cfg)
+def list_tool_names(agent):
+    try:
+        tools = getattr(agent, "tools", None)
+        if tools is None:
+            return []
+        names = []
+        for t in tools:
+            # support objects with .name or dicts
+            n = getattr(t, "name", None)
+            if n is None and isinstance(t, dict):
+                n = t.get("name")
+            if n:
+                names.append(str(n))
+        return sorted(set(names))
+    except Exception:
+        return []:
+    try:
+        return sorted([t.name for t in getattr(agent, "tools", [])])
+    except Exception:
+        return []
+
+class Runner:
+    @staticmethod
+    def run_sync(agent, text, session=None):
+        # your real runner may differ; call agent.run or similar
+        if hasattr(agent, "run"):
+            return agent.run(text)
+        if hasattr(agent, "__call__"):
+            return agent(text)
+        raise RuntimeError("Agent has no run()")
+
+# --- clean REPL ---
+def repl():
+    global messages, client
+    print("Main Trading Orchestrator ready.")
+    print("Commands:  !!reload  !!tools  !!quit")
+    print("Utilities: !shell <cmd>   !py <code>")
+
+    # initial agent
+    try:
+        cfg = _robust_load_master_cfg()
+        agent = rebuild_agent(cfg)
+        print("[agent ready]")
+    except Exception as e:
+        print("[agent build error]", e)
+        agent = None
+
+    while True:
+        try:
+            raw = input("you> ").strip()
+        except (EOFError, KeyboardInterrupt):
+            print("\nbye."); return
+
+        if not raw:
+            continue
+        if raw in ("!!quit", "exit", "quit"):
+            print("bye."); return
+
+        if raw == "!!tools":
+            print("tools:", ", ".join(list_tool_names(agent)) or "(none)"); continue
+
+        if raw == "!!reload":
+            try:
+                cfg = _robust_load_master_cfg()
+                agent = rebuild_agent(cfg)
+                print("[reloaded]")
+            except Exception as e:
+                print("[reload failed]", e)
+            continue
+
+        if agent is None:
+            print("[no agent] use !!reload"); continue
+
+        try:
+            res = Runner.run_sync(agent, raw)
+            out = getattr(res, "final_output", None) or str(res)
+        except Exception as e:
+            out = f"[run error] {e!r}"
+        print("bot>", out)
+
+def _boot():
+    try:
+        repl()
+    except KeyboardInterrupt:
+        print("\nbye.")
+    except Exception as e:
+        import traceback
+        print("[boot crash]", e)
+        traceback.print_exc()
+
+if __name__ == "__main__":
+    _boot()
+

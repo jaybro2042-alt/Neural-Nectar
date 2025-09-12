@@ -1,0 +1,16 @@
+{
+  "name": "scary_skeleton_audcad_5m",
+  "universe": [
+    "AUD/CAD"
+  ],
+  "timeframe": "5m",
+  "params": {
+    "ema": 20,
+    "rsi": 14,
+    "atr": 14
+  },
+  "risk": {
+    "risk_pct": 0.5,
+    "stop": "2*ATR(14)"
+  }
+}

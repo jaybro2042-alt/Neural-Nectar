@@ -1,0 +1,21 @@
+{
+  "name": "scary_omni",
+  "timeframe": "5m",
+  "universe": [
+    "USD/CHF"
+  ],
+  "params": {
+    "ema_fast": 50,
+    "ema_slow": 60,
+    "rsi": 14,
+    "atr": 14
+  },
+  "risk": {
+    "risk_pct": 0.75,
+    "stop": "2.5*ATR(14)",
+    "take_profit_R": 2.5,
+    "value_per_point": 1.0
+  },
+  "entry": "ML signal long/short threshold with trend filter",
+  "exit": "Signal flip or trailing ATR stop"
+}

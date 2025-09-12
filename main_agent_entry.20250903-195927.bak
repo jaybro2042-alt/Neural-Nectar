@@ -1,0 +1,151 @@
+﻿import os, sys, json, importlib, traceback
+from typing import List
+
+ROOT = os.path.dirname(os.path.abspath(__file__))
+if ROOT not in sys.path:
+    sys.path.insert(0, ROOT)
+
+def import_build_agent():
+    for mod_name in ("agent.api_agent", "api_agent"):
+        try:
+            mod = importlib.import_module(mod_name)
+            build = getattr(mod, "build_agent", None)
+            if callable(build):
+                return build, mod
+        except Exception:
+            pass
+    print("Could not import build_agent() from agent.api_agent or api_agent.")
+    sys.exit(2)
+
+build_agent, agent_module = import_build_agent()
+
+def _robust_load_master_cfg():
+    path = os.path.join(ROOT, "master_config.json")
+    with open(path, "r", encoding="utf-8-sig") as f:
+        return json.load(f)
+
+if hasattr(agent_module, "_load_master_cfg"):
+    agent_module._load_master_cfg = _robust_load_master_cfg
+    print(f"Using master_config at: {os.path.join(ROOT,'master_config.json')}")
+
+from agents import Runner, SQLiteSession
+from agents import CodeInterpreterTool, LocalShellTool
+from agents.tool import LocalShellExecutor
+
+def list_tool_names(agent) -> List[str]:
+    tools = getattr(agent, "tools", []) or []
+    return [getattr(t, "name", None) or getattr(t, "__name__", None) or type(t).__name__ for t in tools]
+
+def _has_tool(agent, names):
+    have = set(list_tool_names(agent))
+    want = set(names if isinstance(names,(list,tuple,set)) else [names])
+    return bool(have & want)
+
+def _ci_tool_config():
+    """
+    Try multiple import locations for CodeInterpreter type; if none exist,
+    fall back to the plain API shape dict.
+    """
+    for mod in ("openai.types.responses", "openai.types", "openai.types.shared"):
+        try:
+            m = importlib.import_module(mod)
+            CI = getattr(m, "CodeInterpreter", None)
+            if CI:
+                return CI()
+        except Exception:
+            continue
+    return {"type": "code_interpreter"}  # valid API shape
+
+def build_tools_from_cfg(cfg):
+    flags = (cfg.get("permissions", {}).get("tools", {})) or {}
+    extra = []
+
+    # Code Interpreter (hosted)
+    if flags.get("code_interpreter", False):
+        ci_cfg = _ci_tool_config()
+        # support both positional and keyword constructor variants
+        added = False
+        for attempt in (lambda: CodeInterpreterTool(ci_cfg),
+                        lambda: CodeInterpreterTool(tool_config=ci_cfg)):
+            try:
+                extra.append(attempt())
+                added = True
+                break
+            except TypeError:
+                continue
+            except Exception:
+                break
+        if not added:
+            print("Skipping CodeInterpreterTool: unable to construct with current SDK")
+
+    # Local shell (your machine; be careful)
+    if flags.get("local_shell", False) or flags.get("allow_console", False):
+        try:
+            extra.append(LocalShellTool(executor=LocalShellExecutor()))
+        except Exception as e:
+            print("Skipping LocalShellTool:", e)
+
+    return [t for t in extra if t is not None]
+
+def ensure_tools(agent, cfg):
+    extras = build_tools_from_cfg(cfg)
+    if not extras:
+        return
+    have = set(list_tool_names(agent))
+    if hasattr(agent, "tools") and isinstance(agent.tools, list):
+        for t in extras:
+            n = getattr(t, "name", None) or type(t).__name__
+            if n not in have:
+                agent.tools.append(t)
+    else:
+        agent.tools = (getattr(agent, "tools", []) or []) + extras
+
+def rebuild_agent(cfg=None):
+    try:
+        importlib.reload(agent_module)
+    except Exception:
+        pass
+    if cfg is None:
+        cfg = _robust_load_master_cfg()
+    try:
+        ag = build_agent()
+    except Exception as e:
+        print("Failed to build agent:", e)
+        traceback.print_exc(); sys.exit(2)
+    ensure_tools(ag, cfg)
+    print("Registered tools:", list_tool_names(ag))
+    return ag
+
+def main():
+    if not os.environ.get("OPENAI_API_KEY"):
+        print("ERROR: Set OPENAI_API_KEY in your environment."); sys.exit(1)
+
+    db_dir = os.path.join(ROOT, "chat_logs")
+    os.makedirs(db_dir, exist_ok=True)
+    session = SQLiteSession("local_cli", os.path.join(db_dir, "conversations.db"))
+
+    cfg = _robust_load_master_cfg()
+    agent = rebuild_agent(cfg)
+    print("\nMain Trading Orchestrator ready.")
+    print("Commands:  !!reload  !!tools  !!quit\n")
+
+    while True:
+        try:
+            msg = input("you> ").strip()
+        except (EOFError, KeyboardInterrupt):
+            print("\nbye."); break
+
+        if not msg: continue
+        if msg in ("!!quit","!!exit"): print("bye."); break
+        if msg == "!!tools": print("tools:", ", ".join(list_tool_names(agent)) or "(none)"); continue
+        if msg == "!!reload": agent = rebuild_agent(); continue
+
+        try:
+            res = Runner.run_sync(agent, msg, session=session)
+            print("bot>", getattr(res, "final_output", str(res)))
+        except Exception as e:
+            print("run error:", e); traceback.print_exc()
+
+if __name__ == "__main__":
+    main()
+

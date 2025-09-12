@@ -1,0 +1,4 @@
+2025-09-02 16:18:45 EST - TASK LOG START
+[1] 2025-09-02 16:18:45 EST - Set console.max_turns and orchestrator.max_turns to 1000 (via master_config). Status: DONE
+[2] 2025-09-02 16:18:45 EST - Organized project: moved master_config files into strategies/. Status: DONE
+[3] 2025-09-02 16:18:45 EST - Created default strategy strategies/default_ema_rsi.json. Status: UPDATED (pretty JSON).

@@ -1,0 +1,20 @@
+{
+  "name": "scary_roughdeluxe",
+  "timeframe": "5m",
+  "universe": [
+    "GBP/USD"
+  ],
+  "params": {
+    "ema_fast": 20,
+    "ema_slow": 60,
+    "rsi": 14,
+    "atr": 14
+  },
+  "risk": {
+    "risk_pct": 0.8,
+    "stop": "2*ATR(14)",
+    "take_profit_R": 2.0
+  },
+  "entry": "Structure-based pullback after CHoCH + OB mitigation with ADX regime filter",
+  "exit": "Opposite structure break or time stop"
+}
